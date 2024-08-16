@@ -1,4 +1,4 @@
-package lox;
+package src.jacom;
 
 enum TokenType {
   // Single-character tokens.

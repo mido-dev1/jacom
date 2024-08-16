@@ -1,11 +1,11 @@
-package lox;
+package src.jacom;
+
+import static src.jacom.TokenType.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static lox.TokenType.*;
 
 class Scanner {
   private static final Map<String, TokenType> keywords;

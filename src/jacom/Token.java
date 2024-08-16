@@ -1,4 +1,4 @@
-package lox;
+package src.jacom;
 
 class Token {
   final TokenType type;
