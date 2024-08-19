@@ -1,8 +1,5 @@
 package src.jacom;
 
-import static src.jacom.TokenType.COLON;
-import static src.jacom.TokenType.QMARK;
-
 class AstPrinter implements Expr.Visitor<String> {
   String print(Expr expr) {
     return expr.accept(this);
