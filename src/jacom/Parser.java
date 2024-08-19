@@ -140,6 +140,52 @@ class Parser {
       return new Expr.Grouping(expr);
     }
 
+    // Error productions
+    if (match(COMMA)) {
+      error(previous(), "Missing left-hand operand.");
+      // return comma();
+      comma();
+      return null;
+    }
+
+    // if (match(QMARK)) {
+    // error(previous(), "Expected a condition.");
+    // return expression();
+    // }
+
+    // if (match(COLON)) {
+    // error(previous(), "Expected an expression.");
+    // return ternary();
+    // }
+
+    if (match(BANG_EQUAL, EQUAL_EQUAL)) {
+      error(previous(), "Missing left-hand operand.");
+      // return equality();
+      equality();
+      return null;
+    }
+
+    if (match(LESS, LESS_EQUAL, GREATER, GREATER_EQUAL)) {
+      error(previous(), "Missing left-hand operand.");
+      // return comparison();
+      comparison();
+      return null;
+    }
+
+    if (match(PLUS)) {
+      error(previous(), "Missing left-hand operand.");
+      // return term();
+      term();
+      return null;
+    }
+
+    if (match(SLASH, STAR)) {
+      error(previous(), "Missing left-hand operand.");
+      // return factor();
+      factor();
+      return null;
+    }
+
     throw error(peek(), "Expect expression.");
   }
 
