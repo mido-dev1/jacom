@@ -26,7 +26,36 @@ class Parser {
 
   // Expression
   private Expr expression() {
-    return equality();
+    return comma();
+  }
+
+  // Comma (expr1, expr2, expr3, ... exprn => exprn)
+  // Grammar: comma -> equality ("," equality)*;
+  private Expr comma() {
+    Expr expr = ternary();
+
+    while (match(COMMA)) {
+      Token operator = previous();
+      Expr rigth = equality();
+      expr = new Expr.Binary(expr, operator, rigth);
+    }
+
+    return expr;
+  }
+
+  // Ternary (condition ? expression-true : expression-false) // right associative
+  // Grammar ternary -> equality ("?" expression ":" ternary)?; // precedence between ? and : is ignored (C docs)
+  private Expr ternary() {
+    Expr expr = equality();
+
+    if (match(QMARK)) {
+      Expr expr_true = expression();
+      consume(COLON, "Expect : after expression.");
+      Expr expr_false = ternary();
+      expr = new Expr.Ternary(expr, expr_true, expr_false);
+    }
+
+    return expr;
   }
 
   // For equality (==, !=)
@@ -161,6 +190,7 @@ class Parser {
     Lox.error(token, message);
     return new ParseError();
   }
+
   // TODO: !?
   private void synchronize() {
     advance();

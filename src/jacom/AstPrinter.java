@@ -1,5 +1,8 @@
 package src.jacom;
 
+import static src.jacom.TokenType.COLON;
+import static src.jacom.TokenType.QMARK;
+
 class AstPrinter implements Expr.Visitor<String> {
   String print(Expr expr) {
     return expr.accept(this);
@@ -28,6 +31,11 @@ class AstPrinter implements Expr.Visitor<String> {
     return parenthesize(expr.operator.lexeme, expr.right);
   }
 
+  @Override
+  public String visitTernaryExpr(Expr.Ternary expr) {
+    return ternaryPrint(expr.condition, expr.expr_true, expr.expr_false);
+  }
+
   private String parenthesize(String name, Expr... exprs) {
     StringBuilder builder = new StringBuilder();
 
@@ -37,6 +45,17 @@ class AstPrinter implements Expr.Visitor<String> {
       builder.append(expr.accept(this));
     }
     builder.append(")");
+
+    return builder.toString();
+  }
+
+  private String ternaryPrint(Expr condition, Expr expr_true, Expr expr_false) {
+    StringBuilder builder = new StringBuilder();
+
+    builder.append("(").append("if ");
+    builder.append(condition.accept(this)).append(" => ");
+    builder.append(expr_true.accept(this)).append(" else ");
+    builder.append(expr_false.accept(this)).append(")");
 
     return builder.toString();
   }
@@ -63,7 +82,19 @@ class AstPrinter implements Expr.Visitor<String> {
         new Token(TokenType.MINUS, "-", null, 1),
         new Expr.Literal(4));
 
+    Expr e3 = new Expr.Ternary(
+        new Expr.Literal(1),
+        new Expr.Literal("true1"),
+        new Expr.Ternary(
+            new Expr.Literal(2),
+            new Expr.Literal("true2"),
+            new Expr.Ternary(
+                new Expr.Literal(3),
+                new Expr.Literal("true3"),
+                new Expr.Literal("false"))));
+
     System.out.println(new AstPrinter().print(e1));
     System.out.println(new AstPrinter().print(e2));
+    System.out.println(new AstPrinter().print(e3));
   }
 }
