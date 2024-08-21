@@ -110,14 +110,12 @@ class Interpreter implements Expr.Visitor<Object> {
           return (double) left + (double) right;
         }
 
-        if (left instanceof String && right instanceof String) {
-          return (String) left + (String) right;
-        }
-
-        throw new RuntimeError(expr.operator,
-            "Operands must be two numbers or two strings.");
+        return stringify(left) + stringify(right);
       case SLASH:
         checkNumberOperands(expr.operator, left, right);
+        if (right.equals(0.0) || right.equals(-0.0))
+        throw new RuntimeError(expr.operator, "Zero division error");
+
         return (double) left / (double) right;
       case STAR:
         checkNumberOperands(expr.operator, left, right);
