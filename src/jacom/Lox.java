@@ -14,6 +14,8 @@ public class Lox {
   static boolean hadError = false;
   static boolean hadRuntimeError = false;
 
+  static boolean repl = false;
+
   public static void main(String[] args) throws IOException {
     if (args.length > 1) {
       System.out.println("Usage: jlox [script]");
@@ -42,6 +44,7 @@ public class Lox {
     // Read from stdin
     InputStreamReader input = new InputStreamReader(System.in);
     BufferedReader reader = new BufferedReader(input);
+    repl = true;
 
     for (;;) {
       System.out.print("> ");

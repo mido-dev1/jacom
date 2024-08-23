@@ -115,7 +115,10 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitExpressionStmt(Stmt.Expression stmt) {
-    evaluate(stmt.expression);
+    Object ret = evaluate(stmt.expression);
+    if (Lox.repl) {
+      System.out.println(stringify(ret));
+    }
     return null;
   }
 
