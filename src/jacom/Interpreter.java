@@ -7,6 +7,9 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   // values => come from Interpreter's domain
   private Environment environment = new Environment();
 
+  // sprecial sentinel value
+  private static Object init = new Object();
+
   @Override
   public Object visitLiteralExpr(Expr.Literal expr) {
     return expr.value;
@@ -35,7 +38,12 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Object visitVariableExpr(Expr.Variable expr) {
-    return environment.get(expr.name);
+    Object ret = environment.get(expr.name);
+    if (ret != init) {
+      return ret;
+    }
+
+    throw new RuntimeError(expr.name, "Variable not initialized.");
   }
 
   private void checkNumberOperand(Token operator, Object operand) {
@@ -131,7 +139,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
   @Override
   public Void visitVarStmt(Stmt.Var stmt) {
-    Object value = null;
+    Object value = init;
     if (stmt.initializer != null) {
       value = evaluate(stmt.initializer);
     }
