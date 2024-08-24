@@ -1,6 +1,7 @@
 package src.jacom;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static src.jacom.TokenType.*;
@@ -45,14 +46,85 @@ class Parser {
     }
   }
 
-  // statement -> exprStmt | printStmt | block;
+  // statement -> exprStmt | printStmt | block | ifStmt | whileStmt | forStmt;
   private Stmt statement() {
+    if (match(FOR))
+      return forStatement();
+    if (match(IF))
+      return ifStatement();
     if (match(PRINT))
       return printStatement();
+    if (match(WHILE))
+      return whileStatement();
     if (match(LEFT_BRACE))
       return new Stmt.Block(block());
 
     return expressionStatement();
+  }
+
+  // forStmt -> "for" "("varDec | exprStmt | ";" expression? ";" expression? ")"
+  // statement ;
+  // here the for loop is a "syntactic sugar"
+  // we can just replace it while a for loop instead
+  private Stmt forStatement() {
+    consume(LEFT_PAREN, "Expect '(' after 'for'.");
+
+    Stmt initializer;
+    if (match(SEMICOLON)) {
+      initializer = null;
+    } else if (match(VAR)) {
+      initializer = varDeclaration();
+    } else {
+      initializer = expressionStatement();
+    }
+
+    Expr condition = null;
+    if (!check(SEMICOLON)) {
+      condition = expression();
+    }
+    consume(SEMICOLON, "Expect ';' after loop condition.");
+
+    Expr increment = null;
+    if (!check(RIGHT_PAREN)) {
+      increment = expression();
+    }
+    consume(RIGHT_PAREN, "Expect ')' after for clauses.");
+    Stmt body = statement();
+
+    // merge the body and the increment in one statement
+    if (increment != null) {
+      body = new Stmt.Block(
+          Arrays.asList(
+              body,
+              new Stmt.Expression(increment)));
+    }
+
+    if (condition == null)
+      condition = new Expr.Literal(true);
+    body = new Stmt.While(condition, body);
+
+    // if the initializer exits we jam in the var declaration and the while loop
+    // together in one statement
+    if (initializer != null) {
+      body = new Stmt.Block(Arrays.asList(initializer, body));
+    }
+
+    return body;
+  }
+
+  // ifStmt -> "if" "(" expression ")" statement ("else" statement)? ;
+  private Stmt ifStatement() {
+    consume(LEFT_PAREN, "Expect '(' after 'if'.");
+    Expr condition = expression();
+    consume(RIGHT_PAREN, "Expect ')' after if condition.");
+
+    Stmt thenBranch = statement();
+    Stmt elseBranch = null;
+    if (match(ELSE)) {
+      elseBranch = statement();
+    }
+
+    return new Stmt.If(condition, thenBranch, elseBranch);
   }
 
   // printStmt -> "print" expression ";";
@@ -75,6 +147,16 @@ class Parser {
     return new Stmt.Var(name, initializer);
   }
 
+  // whileStmt -> "while" "("expression")" statement;
+  private Stmt whileStatement() {
+    consume(LEFT_PAREN, "Expect '(' after 'while'.");
+    Expr condition = expression();
+    consume(RIGHT_PAREN, "Expect ')' after condition.");
+    Stmt body = statement();
+
+    return new Stmt.While(condition, body);
+  }
+
   // exprStmt -> expression ";";
   private Stmt expressionStatement() {
     Expr expr = expression();
@@ -94,9 +176,9 @@ class Parser {
     return statements;
   }
 
-  // assignment -> IDENTIFIER "=" assignment | equality; // right
+  // assignment -> IDENTIFIER "=" assignment | logic_or; // right
   private Expr assignment() {
-    Expr expr = equality();
+    Expr expr = or();
 
     if (match(EQUAL)) {
       Token equals = previous();
@@ -108,6 +190,32 @@ class Parser {
       }
 
       error(equals, "Invalid assignment target.");
+    }
+
+    return expr;
+  }
+
+  // logic_or -> logic_and ("or" logic_and)*;
+  private Expr or() {
+    Expr expr = and();
+
+    while (match(OR)) {
+      Token operator = previous();
+      Expr right = and();
+      expr = new Expr.Logical(expr, operator, right);
+    }
+
+    return expr;
+  }
+
+  // logic_and -> equality ("and" equality)*;
+  private Expr and() {
+    Expr expr = equality();
+
+    while (match(AND)) {
+      Token operator = previous();
+      Expr right = equality();
+      expr = new Expr.Logical(expr, operator, right);
     }
 
     return expr;
