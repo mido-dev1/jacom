@@ -46,8 +46,7 @@ abstract class Stmt {
   }
 
   static class Break extends Stmt {
-    Break(Token br) {
-      this.br = br;
+    Break() {
     }
 
     @Override
@@ -55,7 +54,6 @@ abstract class Stmt {
       return visitor.visitBreakStmt(this);
     }
 
-    final Token br;
   }
 
   static class If extends Stmt {

@@ -11,7 +11,7 @@ class Parser {
   private static class ParseError extends RuntimeException {
   }
 
-  private static int loop_count = 0;
+  private int loop_count = 0;
 
   private final List<Token> tokens;
   private int current = 0;
@@ -62,19 +62,18 @@ class Parser {
     if (match(LEFT_BRACE))
       return new Stmt.Block(block());
     if (match(BREAK))
-      return break_Stmt();
+      return breakStatement();
 
     return expressionStatement();
   }
 
   // breakStmt -> "break" ";";
-  private Stmt break_Stmt() {
-    Token br = previous();
-    consume(SEMICOLON, "Except ';' after break.");
-    if (loop_count > 0)
-      return new Stmt.Break(br);
-    error(br, "Break statement may only be used within a loop.");
-    return null;
+  private Stmt breakStatement() {
+    if (loop_count == 0) {
+      error(previous(), "Must be inside a loop to use 'break'.");
+    }
+    consume(SEMICOLON, "Expect ';' after 'break'.");
+    return new Stmt.Break();
   }
 
   // forStmt -> "for" "("varDec | exprStmt | ";" expression? ";" expression? ")"
@@ -104,29 +103,32 @@ class Parser {
       increment = expression();
     }
     consume(RIGHT_PAREN, "Expect ')' after for clauses.");
-    ++loop_count;
-    Stmt body = statement();
-    --loop_count;
+    try {
+      loop_count++;
+      Stmt body = statement();
 
-    // merge the body and the increment in one statement
-    if (increment != null) {
-      body = new Stmt.Block(
-          Arrays.asList(
-              body,
-              new Stmt.Expression(increment)));
+      // merge the body and the increment in one statement
+      if (increment != null) {
+        body = new Stmt.Block(
+            Arrays.asList(
+                body,
+                new Stmt.Expression(increment)));
+      }
+
+      if (condition == null)
+        condition = new Expr.Literal(true);
+      body = new Stmt.While(condition, body);
+
+      // if the initializer exits we jam in the var declaration and the while loop
+      // together in one statement
+      if (initializer != null) {
+        body = new Stmt.Block(Arrays.asList(initializer, body));
+      }
+
+      return body;
+    } finally {
+      loop_count--;
     }
-
-    if (condition == null)
-      condition = new Expr.Literal(true);
-    body = new Stmt.While(condition, body);
-
-    // if the initializer exits we jam in the var declaration and the while loop
-    // together in one statement
-    if (initializer != null) {
-      body = new Stmt.Block(Arrays.asList(initializer, body));
-    }
-
-    return body;
   }
 
   // ifStmt -> "if" "(" expression ")" statement ("else" statement)? ;
@@ -169,11 +171,14 @@ class Parser {
     consume(LEFT_PAREN, "Expect '(' after 'while'.");
     Expr condition = expression();
     consume(RIGHT_PAREN, "Expect ')' after condition.");
-    ++loop_count;
-    Stmt body = statement();
-    --loop_count;
+    try {
+      ++loop_count;
+      Stmt body = statement();
 
-    return new Stmt.While(condition, body);
+      return new Stmt.While(condition, body);
+    } finally {
+      --loop_count;
+    }
   }
 
   // exprStmt -> expression ";";
