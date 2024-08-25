@@ -7,6 +7,9 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   // values => come from Interpreter's domain
   private Environment environment = new Environment();
 
+  private static class Break_Exception extends RuntimeException {
+  }
+
   @Override
   public Object visitLiteralExpr(Expr.Literal expr) {
     return expr.value;
@@ -123,6 +126,11 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   }
 
   @Override
+  public Void visitBreakStmt(Stmt.Break stmt) {
+    throw new Break_Exception();
+  }
+
+  @Override
   public Void visitBlockStmt(Stmt.Block stmt) {
     executeBlock(stmt.statements, new Environment(environment));
     return null;
@@ -165,7 +173,11 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Void visitWhileStmt(Stmt.While stmt) {
     while (isTruthy(evaluate(stmt.condition))) {
-      execute(stmt.body);
+      try {
+        execute(stmt.body);
+      } catch (Break_Exception b) {
+        break;
+      }
     }
     return null;
   }

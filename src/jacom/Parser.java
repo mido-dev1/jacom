@@ -11,6 +11,8 @@ class Parser {
   private static class ParseError extends RuntimeException {
   }
 
+  private static int loop_count = 0;
+
   private final List<Token> tokens;
   private int current = 0;
 
@@ -46,7 +48,8 @@ class Parser {
     }
   }
 
-  // statement -> exprStmt | printStmt | block | ifStmt | whileStmt | forStmt;
+  // statement -> exprStmt | printStmt | block | ifStmt | whileStmt | forStmt |
+  // breakStmt;
   private Stmt statement() {
     if (match(FOR))
       return forStatement();
@@ -58,8 +61,20 @@ class Parser {
       return whileStatement();
     if (match(LEFT_BRACE))
       return new Stmt.Block(block());
+    if (match(BREAK))
+      return break_Stmt();
 
     return expressionStatement();
+  }
+
+  // breakStmt -> "break" ";";
+  private Stmt break_Stmt() {
+    Token br = previous();
+    consume(SEMICOLON, "Except ';' after break.");
+    if (loop_count > 0)
+      return new Stmt.Break(br);
+    error(br, "Break statement may only be used within a loop.");
+    return null;
   }
 
   // forStmt -> "for" "("varDec | exprStmt | ";" expression? ";" expression? ")"
@@ -89,7 +104,9 @@ class Parser {
       increment = expression();
     }
     consume(RIGHT_PAREN, "Expect ')' after for clauses.");
+    ++loop_count;
     Stmt body = statement();
+    --loop_count;
 
     // merge the body and the increment in one statement
     if (increment != null) {
@@ -152,7 +169,9 @@ class Parser {
     consume(LEFT_PAREN, "Expect '(' after 'while'.");
     Expr condition = expression();
     consume(RIGHT_PAREN, "Expect ')' after condition.");
+    ++loop_count;
     Stmt body = statement();
+    --loop_count;
 
     return new Stmt.While(condition, body);
   }
