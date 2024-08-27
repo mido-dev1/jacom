@@ -33,9 +33,11 @@ class Parser {
     return assignment();
   }
 
-  // declaration -> varDec | statement;
+  // declaration -> varDecl | statement | funDecl;
   private Stmt declaration() {
     try {
+      if (match(FUN))
+        return function("function");
       if (match(VAR))
         return varDeclaration();
 
@@ -46,7 +48,8 @@ class Parser {
     }
   }
 
-  // statement -> exprStmt | printStmt | block | ifStmt | whileStmt | forStmt;
+  // statement -> exprStmt | printStmt | block | ifStmt | whileStmt | forStmt |
+  // returnStmt;
   private Stmt statement() {
     if (match(FOR))
       return forStatement();
@@ -54,6 +57,8 @@ class Parser {
       return ifStatement();
     if (match(PRINT))
       return printStatement();
+    if (match(RETURN))
+      return returnStatement();
     if (match(WHILE))
       return whileStatement();
     if (match(LEFT_BRACE))
@@ -62,7 +67,7 @@ class Parser {
     return expressionStatement();
   }
 
-  // forStmt -> "for" "("varDec | exprStmt | ";" expression? ";" expression? ")"
+  // forStmt -> "for" "("varDecl | exprStmt | ";" expression? ";" expression? ")"
   // statement ;
   // here the for loop is a "syntactic sugar"
   // we can just replace it while a for loop instead
@@ -134,7 +139,20 @@ class Parser {
     return new Stmt.Print(value);
   }
 
-  // varDec -> "var" IDENTIFIER ("=" expression)? ";";
+  // returnStmt -> "return" expression? ";";
+  private Stmt returnStatement() {
+    Token keyword = previous();
+    Expr value = null;
+    // if there is a return value
+    if (!check(SEMICOLON)) {
+      value = expression();
+    }
+
+    consume(SEMICOLON, "Expect ';' after return value.");
+    return new Stmt.Return(keyword, value);
+  }
+
+  // varDecl -> "var" IDENTIFIER ("=" expression)? ";";
   private Stmt varDeclaration() {
     Token name = consume(IDENTIFIER, "Expect variable name.");
 
@@ -162,6 +180,32 @@ class Parser {
     Expr expr = expression();
     consume(SEMICOLON, "Expect ';' after expression.");
     return new Stmt.Expression(expr);
+  }
+
+  // funDecl -> "fun" function;
+  // function -> IDENTIFIER "("parameters?")" block;
+  private Stmt.Function function(String kind) {
+    // kind is just for reusing this function to parse methods in class
+    Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+    // parameters -> IDENTIFIER ("," IDENTIFIER)*;
+    consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+    List<Token> parameters = new ArrayList<>();
+    // if there is parameters
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (parameters.size() >= 255) {
+          error(peek(), "Can't have more than 255 parameters.");
+        }
+
+        parameters.add(
+            consume(IDENTIFIER, "Expect parameter name."));
+      } while (match(COMMA));
+    }
+    consume(RIGHT_PAREN, "Expect ')' after parameters.");
+
+    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+    List<Stmt> body = block();
+    return new Stmt.Function(name, parameters, body);
   }
 
   // block -> "{" declaration "}";
@@ -273,7 +317,7 @@ class Parser {
     return expr;
   }
 
-  // For unary (!, -)
+  // unary -> (!, -) unary | call;
   private Expr unary() {
     if (match(BANG, MINUS)) {
       Token operator = previous();
@@ -281,7 +325,42 @@ class Parser {
       return new Expr.Unary(operator, right);
     }
 
-    return primary();
+    return call();
+  }
+
+  // helper
+  private Expr finishCall(Expr callee) {
+    List<Expr> arguments = new ArrayList<>();
+    // if there is arguments
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (arguments.size() >= 255) {
+          error(peek(), "Can't have more than 255 arguments.");
+        }
+        arguments.add(expression());
+      } while (match(COMMA));
+    }
+
+    Token paren = consume(RIGHT_PAREN,
+        "Expect ')' after arguments.");
+
+    return new Expr.Call(callee, paren, arguments);
+  }
+
+  // call -> primary ("("arguments?")")*;
+  // arguments -> expression ("," expression)*; limit: 255
+  private Expr call() {
+    Expr expr = primary();
+
+    while (true) {
+      if (match(LEFT_PAREN)) {
+        expr = finishCall(expr);
+      } else {
+        break;
+      }
+    }
+
+    return expr;
   }
 
   // For primary (litterals)
