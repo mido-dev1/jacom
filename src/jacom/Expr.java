@@ -4,7 +4,7 @@ import java.util.List;
 
 abstract class Expr {
   interface Visitor<R> {
-    R visitLambdaExpr(Lambda expr);
+    R visitFunctionExpr(Function expr);
 
     R visitAssignExpr(Assign expr);
 
@@ -23,18 +23,18 @@ abstract class Expr {
     R visitVariableExpr(Variable expr);
   }
 
-  static class Lambda extends Expr {
-    Lambda(List<Token> params, List<Stmt> body) {
-      this.params = params;
+  static class Function extends Expr {
+    Function(List<Token> parameters, List<Stmt> body) {
+      this.parameters = parameters;
       this.body = body;
     }
 
     @Override
     <R> R accept(Visitor<R> visitor) {
-      return visitor.visitLambdaExpr(this);
+      return visitor.visitFunctionExpr(this);
     }
 
-    final List<Token> params;
+    final List<Token> parameters;
     final List<Stmt> body;
   }
 
