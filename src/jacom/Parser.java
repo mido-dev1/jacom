@@ -36,8 +36,10 @@ class Parser {
   // declaration -> varDecl | statement | funDecl;
   private Stmt declaration() {
     try {
-      if (match(FUN))
+      if (check(FUN) && check_next(IDENTIFIER)) {
+        advance();
         return function("function");
+      }
       if (match(VAR))
         return varDeclaration();
 
@@ -180,6 +182,28 @@ class Parser {
     Expr expr = expression();
     consume(SEMICOLON, "Expect ';' after expression.");
     return new Stmt.Expression(expr);
+  }
+
+  // lambda -> "fun" "("params?")" block;
+  // prams -> IDENTIFIER ("," IDENTIFIER)*;
+  private Expr lambda() {
+    consume(LEFT_PAREN, "Expect '(' after 'fun'.");
+    List<Token> params = new ArrayList<>();
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (params.size() >= 255) {
+          error(peek(), "Can't have more than 255 parameters.");
+        }
+
+        params.add(
+            consume(IDENTIFIER, "Expect parameter name."));
+      } while (match(COMMA));
+    }
+    consume(RIGHT_PAREN, "Expect ')' after parameters.");
+
+    consume(LEFT_BRACE, "Expect '{' before function body.");
+    List<Stmt> body = block();
+    return new Expr.Lambda(params, body);
   }
 
   // funDecl -> "fun" function;
@@ -365,6 +389,8 @@ class Parser {
 
   // For primary (litterals)
   private Expr primary() {
+    if (match(FUN))
+      return lambda();
     if (match(FALSE))
       return new Expr.Literal(false);
     if (match(TRUE))
@@ -411,6 +437,12 @@ class Parser {
     if (isAtEnd())
       return false;
     return peek().type == type;
+  }
+
+  private boolean check_next(TokenType type) {
+    if (isAtEnd())
+      return false;
+    return tokens.get(current + 1).type == type;
   }
 
   private Token advance() {

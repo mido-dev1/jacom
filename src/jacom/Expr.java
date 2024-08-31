@@ -4,6 +4,8 @@ import java.util.List;
 
 abstract class Expr {
   interface Visitor<R> {
+    R visitLambdaExpr(Lambda expr);
+
     R visitAssignExpr(Assign expr);
 
     R visitBinaryExpr(Binary expr);
@@ -19,6 +21,21 @@ abstract class Expr {
     R visitUnaryExpr(Unary expr);
 
     R visitVariableExpr(Variable expr);
+  }
+
+  static class Lambda extends Expr {
+    Lambda(List<Token> params, List<Stmt> body) {
+      this.params = params;
+      this.body = body;
+    }
+
+    @Override
+    <R> R accept(Visitor<R> visitor) {
+      return visitor.visitLambdaExpr(this);
+    }
+
+    final List<Token> params;
+    final List<Stmt> body;
   }
 
   static class Assign extends Expr {
