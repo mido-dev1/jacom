@@ -3,6 +3,7 @@ package src.jacom;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Stack;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
@@ -13,6 +14,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   // false: not ready yet
   // true: initialized and ready to use
   private final Stack<Map<String, Boolean>> scopes = new Stack<>();
+  private final Stack<Map<Token, Boolean>> usages = new Stack<>();
   private FunctionType currentFunction = FunctionType.NONE;
 
   Resolver(Interpreter interpreter) {
@@ -48,10 +50,16 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
   private void beginScope() {
     scopes.push(new HashMap<String, Boolean>());
+    usages.push(new HashMap<Token, Boolean>());
   }
 
   private void endScope() {
     scopes.pop();
+    for (Map.Entry<Token, Boolean> entry : usages.pop().entrySet()) {
+      if (!entry.getValue()) {
+        Lox.error(entry.getKey(), "Unused variable.");
+      }
+    }
   }
 
   private void declare(Token name) {
@@ -86,6 +94,17 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
       }
     }
     // here we assume it's global.
+  }
+
+  private void resolve_usage(Token name) {
+    for (int i = usages.size() - 1; i >= 0; --i) {
+      for (Map.Entry<Token, Boolean> entry : usages.get(i).entrySet()) {
+        if (Objects.equals(name.lexeme, entry.getKey().lexeme)) {
+          entry.setValue(true);
+          return;
+        }
+      }
+    }
   }
 
   @Override
@@ -146,6 +165,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
       resolve(stmt.initializer);
     }
     define(stmt.name);
+    if (!usages.empty())
+      usages.peek().put(stmt.name, false);
     return null;
   }
 
@@ -165,6 +186,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     resolveLocal(expr, expr.name);
+    resolve_usage(expr.name);
     return null;
   }
 
