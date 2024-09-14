@@ -7,16 +7,21 @@ import java.util.Stack;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   private final Interpreter interpreter;
-  // lexical scope is represented as linked list in the Interpreter
-  // here is represented as a stack of scoped (env)
-  // Globals are not tracked
-  // false: not ready yet
-  // true: initialized and ready to use
-  private final Stack<Map<String, Boolean>> scopes = new Stack<>();
+  private final Stack<Map<String, Variable>> scopes = new Stack<>();
   private FunctionType currentFunction = FunctionType.NONE;
 
   Resolver(Interpreter interpreter) {
     this.interpreter = interpreter;
+  }
+
+  private static class Variable {
+    // index of the var in scope
+    final int index;
+    boolean is_ready = false;
+
+    private Variable(int index) {
+      this.index = index;
+    }
   }
 
   // we could have used boolean, but it will be extended later...
@@ -47,7 +52,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   }
 
   private void beginScope() {
-    scopes.push(new HashMap<String, Boolean>());
+    scopes.push(new HashMap<String, Variable>());
   }
 
   private void endScope() {
@@ -58,19 +63,21 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     if (scopes.isEmpty())
       return;
 
-    Map<String, Boolean> scope = scopes.peek();
+    Map<String, Variable> scope = scopes.peek();
     if (scope.containsKey(name.lexeme)) {
       Lox.error(name,
           "Already a variable with this name in this scope.");
     }
 
-    scope.put(name.lexeme, false);
+    // add to the last position
+    scope.put(name.lexeme, new Variable(scope.size()));
   }
 
   private void define(Token name) {
     if (scopes.isEmpty())
       return;
-    scopes.peek().put(name.lexeme, true);
+
+    scopes.peek().get(name.lexeme).is_ready = true;
   }
 
   // walk over the stack to find the var
@@ -80,8 +87,10 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   private void resolveLocal(Expr expr, Token name) {
     for (int i = scopes.size() - 1; i >= 0; i--) {
       if (scopes.get(i).containsKey(name.lexeme)) {
-        // (expression, number of jumps/hops/links in the env chain)
-        interpreter.resolve(expr, scopes.size() - 1 - i);
+        // (expression, number of jumps/hops/links in the env chain, index in scope)
+        interpreter.resolve(expr,
+            scopes.size() - 1 - i,
+            scopes.get(i).get(name.lexeme).index);
         return;
       }
     }
@@ -159,7 +168,8 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   @Override
   public Void visitVariableExpr(Expr.Variable expr) {
     if (!scopes.isEmpty() &&
-        scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
+        scopes.peek().containsKey(expr.name.lexeme) &&
+        !scopes.peek().get(expr.name.lexeme).is_ready) {
       Lox.error(expr.name,
           "Can't read local variable in its own initializer.");
     }
